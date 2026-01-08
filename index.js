@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const User = require('./models/User');
+const Todo = require('./models/Todo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -113,6 +114,99 @@ app.delete('/users/:id', async (req, res) => {
     res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
   } catch (error) {
     console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+// --- TODO CRUD Operations ---
+
+// Create Todo
+// POST /todos
+// Body: { userId, title }
+app.post('/todos', async (req, res) => {
+  try {
+    const { userId, title } = req.body;
+    if (!userId || !title) {
+      return res.status(400).json({ error: 'userId and title are required' });
+    }
+
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const newTodo = new Todo({
+      userId,
+      title,
+    });
+
+    await newTodo.save();
+    res.status(201).json(newTodo);
+  } catch (error) {
+    console.error('Error creating todo:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Read Todos for a specific User
+// GET /todos/:userId
+app.get('/todos/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const todos = await Todo.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json(todos);
+  } catch (error) {
+    console.error('Error fetching todos:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Update Todo
+// PUT /todos/:id
+// Body: { title, isCompleted }
+app.put('/todos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, isCompleted } = req.body;
+    
+    // Create an update object with only provided fields
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (isCompleted !== undefined) updateData.isCompleted = isCompleted;
+
+    const updatedTodo = await Todo.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    res.status(200).json(updatedTodo);
+  } catch (error) {
+    console.error('Error updating todo:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Delete Todo
+// DELETE /todos/:id
+app.delete('/todos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedTodo = await Todo.findByIdAndDelete(id);
+
+    if (!deletedTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    res.status(200).json({ message: 'Todo deleted successfully', todo: deletedTodo });
+  } catch (error) {
+    console.error('Error deleting todo:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
